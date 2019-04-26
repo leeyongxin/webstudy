@@ -1,0 +1,21 @@
+version: "3"
+services:
+    
+        db:
+           image: postgres
+           ports:
+              - "5432:5432"
+
+        web:
+           image: dockerdjango_web
+          #build: ./docker_django
+           command: python3 manage.py runserver 0.0.0.0:8000
+           volumes:
+              - .:/code
+           ports:
+              - "8000:8000"
+           links:
+              - db 
+
+                #vim:
+          #build: alpine-vim/
