@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>DBViewer</title>
+  </head>
+  <body>
+    <h1>DB list</h1>
+
+    {% for db in dbs %}
+      {{ db.db_name }} <br>
+    {% endfor %}
+    <a href="{% url 'read_db' %}"><button type="button">Update DB list</button></a>
+
+    <h1>collections</h1>
+{% block content %}
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="id_subject">Select DB</label>
+      <input type="text" class="form-control" id="id_subject" name="db_name">
+    </div>
+    <div class="form-group">
+      <label for="id_message">Message</label>
+      <textarea class="form-control" id="id_message" name="message" rows="5"></textarea>
+    </div>
+    <button type="submit" class="btn btn-success">Check DB</button>
+  </form>
+{% endblock %}
+
+    <a href="{% url 'read_table' %}"><button type="button">Update collections</button></a>
+    {% for col in collections %}
+      {{ col.col_name }} <br>
+    {% endfor %}
+  </body>
+</html>
