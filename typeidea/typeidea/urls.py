@@ -27,9 +27,8 @@ urlpatterns = [
     url(r'^tag/(?P<tag_id>\d+)/$', post_list),
     url(r'^post/(?P<post_id>\d+).htmls/$', post_detail),
     url(r'^links/$', links),
-    url(r'^wind/$', wv.DbListView.as_view(), name='wind_base'),
-    url(r'^wind/ubdate/$', wv.read_db_name, name='read_db'),
-    url(r'^wind/read_col/$', wv.TableListView.as_view(), name='read_table'),
+    url(r'^wind/$', wv.DbListView.as_view(), name='wind_home'),
+    url(r'^wind/(?P<slug>\S+).html/$', wv.TableListView.as_view(), name='db_show'),
     url('^super_admin/', admin.site.urls),
     url('^admin/', custom_site.urls),
 ]
