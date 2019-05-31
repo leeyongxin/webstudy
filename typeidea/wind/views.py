@@ -9,26 +9,26 @@ Date: 2019-05-22 00:37:56
 Last modified: 2019-05-22 00:37:56
 ********************************************
 """
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, render_to_response, reverse
 from django.shortcuts import HttpResponse
-from django.views.generic import DetailView, ListView
+from django.views.generic import DetailView, ListView, TemplateView
 from .models import Database, DbTable
 from .funlib import Mongo
+from .forms import QueryTimeForm
+import json
 
 # Create your views here.
-def showdb(request):
-    read_db_name()
-    db_names=get_dblist()
-    content = '<br>'.join(db_names)
+class TestHtml(TemplateView):
+    template_name = 'wind/example.html'
+def test(request):
+    return render_to_response('wind/example.html')
 
-    return HttpResponse(content)
 
 
 class DbListView(ListView):
     '''
     show dbs in a server
     '''
-    model = Database
     context_object_name = 'dbs'
     template_name = 'wind/home.html'
     def get_queryset(self):
@@ -53,8 +53,6 @@ class DbListView(ListView):
                 db.delete()
 
     def post(self, request):
-        print('here')
-
         dbname = request.POST['db_name']
         mdb = Database.objects.get(db_name=dbname)
         print(dbname)
@@ -66,10 +64,9 @@ class DbListView(ListView):
                 DbTable.objects.create(col_name=colname, db=mdb)
         return redirect('read_table')
 
-class TableListView(ListView):
-    model = DbTable
+class TableListView(DbListView, ListView):
     context_object_name = 'collections'
-    template_name = 'wind/showcol.html'
+    template_name = 'wind/home.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -78,10 +75,12 @@ class TableListView(ListView):
             'dbs':Database.objects.all()
 
             })
-        print(context)
         return context
 
     def get_queryset(self):
+        print(self.kwargs)
+        super().get_queryset()
+
         self.update_table()
         return DbTable.objects.filter(db_id=self.kwargs['slug'])
 
@@ -90,40 +89,93 @@ class TableListView(ListView):
         mdb = Database.objects.get(db_name=self.kwargs['slug'])
         # add talbe if notexist
         table_list = mon.connect_mongo()[self.kwargs['slug']].list_collection_names()
-        print(table_list)
         for colname in table_list :
             try:
                 DbTable.objects.get(col_name=colname)
             except DbTable.DoesNotExist:
-                DbTable.objects.create(col_name=colname, db=mdb)
+                headlist = list(mon.connect_mongo()[self.kwargs['slug']][colname].find_one({},{'_id':0}).keys())
+                newtable = DbTable(col_name=colname, db=mdb)
+                newtable.set_col_head(headlist)
+                newtable.save()
         # remove talbe if not exist
         for col in DbTable.objects.filter(db_id=mdb.db_name):
             if col.col_name not in table_list:
                 col.delete()
 
 
+class TableDetailView(ListView):
+    template_name = 'wind/home.html'
+    queryset = ''
 
 
-def read_db_name(request):
-    mon = Mongo()
-    for dbname in mon.connect_mongo().list_database_names():
-        try:
-            Database.objects.get(db_name=dbname)
-        except Database.DoesNotExist:
-            Database.objects.create(db_name=dbname)
-    dbs = Database.objects.all()
-    return render(request, 'wind_home.html',{'dbs': dbs} )
-
-def read_table_name(request):
-
-    if request.method =='POST':
-        dbname = request.POST['db_name']
-        mon = Mongo()
-        for colname in mon.connect_mongo()[dbname].list_collection_names():
-            mdb = MongoViewer.objects.get(db_name=dbname)
-            db_table = DbViewer(col_name=colname, db=mdb)
-            db_table.save()
-        collections = DbViewer.objects.all()
-        return redirect('read_table', {'collections': collections} )
+    def get_queryset(self, *args,  **kwargs):
+        print("now in get")
+        qs = super().get_queryset()
+        qstart = self.request.GET.get("start_time")
+        qstop = self.request.GET.get("end_time")
+        qselected = self.request.GET.getlist("check")
+        print(qstart)
+        print(qstop)
+        print(qselected)
+        print(self.request.GET)
+        return qs
 
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        headlist = DbTable.objects.get(col_name=self.kwargs['table']).get_col_head()
+        hlist = list(enumerate(headlist))
+        context.update({
+            'collections':DbTable.objects.filter(db=self.kwargs['db']),
+            'headlist': hlist,
+            'model_db': self.kwargs['db'],
+            #'model_table': self.kwargs['table'],
+            'dbs': Database.objects.all(),
+            'form':QueryTimeForm()
+
+            })
+        return context
+
+    def post(self, request, db, table):
+        print("now in post")
+        #print(request.POST)
+
+        return render(request, 'wind/base.html', {'db':db, 'table':table})
+
+
+from django.http import HttpResponse
+from django.shortcuts import render
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.dates import DateFormatter
+import matplotlib.pyplot as plt
+import random
+import datetime
+import io
+import base64
+
+def getimage(request,db=None, table=None):
+    # Construct the graph
+    fig, ax = plt.subplots()
+    x=[]
+    y=[]
+    now=datetime.datetime.now()
+    delta=datetime.timedelta(days=1)
+    for i in range(10):
+        x.append(now)
+        now+=delta
+        y.append(random.randint(0, 1000))
+    ax.plot_date(x, y, '-')
+    ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+    fig.autofmt_xdate()
+    canvas=FigureCanvasAgg(fig)
+    buf = io.BytesIO()
+    #plt.savefig(buf, format='png')
+    canvas.print_png(buf)
+    #plt.close(fig)
+    ret = {}
+    #ret['inline_png']= base64.b64encode(buf.getvalue())
+    ret['inline_png']= base64.b64encode(buf.getvalue()).decode()
+    response=HttpResponse(buf.getvalue(),content_type='image/png')
+    return render(request, 'wind/detail.html', ret)
+    #return response

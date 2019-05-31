@@ -1,0 +1,10 @@
+{% extends './base.html' %}
+{% block pic %}
+<div class="container">
+<a href="{% url 'detail_2' db=model_db  table=model_table %}">
+  <button type="button" class="btn btn-warning">Draw PowerCurve</button>
+</a>
+<img src="data:image/png;base64,{{inline_png}}" alt="test"/>
+</div>
+
+{% endblock %}

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+{% load static %}
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>DB Viewer</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    
+ <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+
+  <!-- XDSoft DateTimePicker -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-datetimepicker/2.5.20/jquery.datetimepicker.min.css" integrity="sha256-DOS9W6NR+NFe1fUhEE0PGKY/fubbUCnOfTje2JMDw3Y=" crossorigin="anonymous" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-datetimepicker/2.5.20/jquery.datetimepicker.full.min.js" integrity="sha256-FEqEelWI3WouFOo2VWP/uJfs1y8KJ++FLh2Lbqc8SJk=" crossorigin="anonymous"></script>
+
+  </head>
+
+
+<body>
+  <div class="container-fluid">
+	<div class="row clearfix">
+		<div class="col-md-12 column">
+			<ul class="breadcrumb">
+				<li>
+          <a href={% url 'home' %}>Home/</a>
+				</li>
+				<li>
+					 <a href="#">Library</a>
+				</li>
+				<li class="active">
+					Data
+				</li>
+			</ul>
+		</div>
+  
+  <div class="container-fluid">
+	<div class="row clearfix">
+		<div class="col-md-2 column">
+			<div class="list-group">
+				 <a href="#" class="list-group-item active">DataBase List</a>
+        {% for db in dbs %}
+				<div class="list-group-item">
+					<h6 class="list-group-item-heading">
+          <a href="/wind/{{ db.db_name }}.html">{{ db.db_name }}</a>
+					</h6>
+				</div>
+        {% endfor %}
+			<div class="list-group">
+				 <a href="#" class="list-group-item active">Table List</a>
+			  <div class="list-group-item">
+          {% for col in collections %}
+          <p><h7 class="list-group-item-heading">
+              <a href="/wind/{{ col.db_id }}/{{col.col_name}}.html"><h7> {{ col.col_name }}</h7></a>
+            </h7></p>
+          {% endfor %}
+				</div>
+			</div>
+			</div>
+		</div>
+		<div class="col-md-8 column">
+
+      {% block middle %}
+
+			<div class="row clearfix">
+				<div class="col-md-8 column">
+
+
+					<table class="table">
+						<thead>
+							<tr>
+								<th>
+									编号
+								</th>
+								<th>
+									表头
+								</th>
+								<th>
+									选择
+								</th>
+							</tr>
+						</thead>
+						<tbody>
+              {% for checkid, header in headlist %}
+							<tr>
+								<td>
+                  {{ checkid }}
+								</td>
+								<td>
+                  {{ header }}
+								</td>
+								<td>
+                      <input class="form-check-input" type="checkbox" name = "check" value={{ checkid }} id={{ checkid }}>
+								</td>
+							</tr>
+              {% endfor %}
+						</tbody>
+					</table>
+
+      {% endblock %}
+				</div>
+
+
+			</div>
+	</div>
+          <div class="col-md-2 column">
+              <form action="" method="get">
+                         {{ form.as_p }}
+                  <input name="time button" type="submit" value="选择时间" class="btn btn-primary" />
+              </form>
+            <hr>
+            <form method="get">
+                  <input name='check button' type="submit" class="btn btn-primary" value="选择字段"/>
+            </form>
+          </div>    
+</div>
+
+	</div>
+</div>
+    
+    </div>
+  </div>
+
+  
+    
+
+
+    {% block pic %}
+    {% endblock %}
+</body>
+
+</html>

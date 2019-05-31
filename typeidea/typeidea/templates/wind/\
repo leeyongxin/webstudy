@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    {% block title %}
+    DBViewer
+    {% endblock %}
+  </head>
+  <body>
+    <h1>DB list</h1>
+    <ul>
+
+    
+    {% block main %}
+    {% for db in dbs %}
+    <li>
+      <a href="/wind/{{ db.db_name }}.html"> {{ db.db_name }}</a>
+      <div>
+      </div>
+    </li>
+    {% endfor %}
+    </ul>
+    <a href="{% url 'read_db' %}"><button type="button">Update DB list</button></a>
+    {% endblock %}
+
+    {% block content %}
+    <h1>collections</h1>
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="id_subject">Select DB</label>
+      <input type="text" class="form-control" id="id_subject" name="db_name">
+    </div>
+    <div class="form-group">
+      <label for="id_message">Message</label>
+      <textarea class="form-control" id="id_message" name="message" rows="5"></textarea>
+    </div>
+    <button type="submit" class="btn btn-success">Check DB</button>
+  </form>
+    {% endblock %}
+
+    <a href="{% url 'read_table' %}"><button type="button">Update collections</button></a>
+    {% for col in collections %}
+      {{ col.col_name }} <br>
+    {% endfor %}
+  </body>
+</html>

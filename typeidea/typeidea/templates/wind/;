@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+{% load static %}
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>DB Viewer</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  </head>
+
+<body>
+  <div class="container-fluid">
+	<div class="row clearfix">
+		<div class="col-md-12 column">
+			<ul class="breadcrumb">
+				<li>
+          <a href={% url 'home' %}>Home/</a>
+				</li>
+				<li>
+					 <a href="#">Library</a>
+				</li>
+				<li class="active">
+					Data
+				</li>
+			</ul>
+		</div>
+	  </div>
+  
+  <div class="container-fluid">
+	<div class="row clearfix">
+		<div class="col-md-2 column">
+			<div class="list-group">
+				 <a href="#" class="list-group-item active">DataBase List</a>
+        {% for db in dbs %}
+				<div class="list-group-item">
+					<h6 class="list-group-item-heading">
+          <a href="/wind/{{ db.db_name }}.html">{{ db.db_name }}</a>
+					</h6>
+				</div>
+        {% endfor %}
+			<div class="list-group">
+				 <a href="#" class="list-group-item active">Table List</a>
+			  <div class="list-group-item">
+          {% for col in collections %}
+          <p><h7 class="list-group-item-heading">
+              <a href="/wind/{{ col.db_id }}/{{col.col_name}}.html"><h7> {{ col.col_name }}</h7></a>
+            </h7></p>
+          {% endfor %}
+				</div>
+			</div>
+			</div>
+		</div>
+		<div class="col-md-10 column">
+			<div class="row clearfix">
+				<div class="col-md-8 column">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>
+									编号
+								</th>
+								<th>
+									表头
+								</th>
+								<th>
+									选择
+								</th>
+								<th>
+									状态
+								</th>
+							</tr>
+						</thead>
+						<tbody>
+              {% for checkid, header in headlist %}
+							<tr>
+								<td>
+                  {{ checkid }}
+								</td>
+								<td>
+                  {{ header }}
+								</td>
+								<td>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="" id={{ checkid }}>
+                      <label class="form-check-label" for="defaultCheck1">
+                      Default checkbox
+                      </label>
+                  </div>
+								</td>
+								<td>
+									Default
+								</td>
+							</tr>
+              {% endfor %}
+						</tbody>
+					</table>
+          <form>
+  <div class="col mb-3">
+  <div class="col-1 themed-grid-col">
+  <button type="submit" class="btn btn-primary">Submit</button>
+  </div>
+  </div>
+  </form>
+				</div>
+
+				<div class="col-md-4 column">
+					<form role="form">
+						<div class="form-group">
+							 <label for="exampleInputEmail1">Email address</label><input type="email" class="form-control" id="exampleInputEmail1" />
+						</div>
+						<div class="form-group">
+							 <label for="exampleInputPassword1">Password</label><input type="password" class="form-control" id="exampleInputPassword1" />
+						</div>
+						<div class="form-group">
+							 <label for="exampleInputFile">File input</label><input type="file" id="exampleInputFile" />
+							<p class="help-block">
+								Example block-level help text here.
+							</p>
+						</div>
+						<div class="checkbox">
+							 <label><input type="checkbox" />Check me out</label>
+						</div> <button type="submit" class="btn btn-default">Submit</button>
+					</form>
+				</div>
+
+
+
+
+			</div>
+		</div>
+	</div>
+</div>
+
+	</div>
+</div>
+
+
+    
+    
+    
+    </div>
+  </div>
+  </div>
+  </div>
+
+  
+    
+
+
+    {% block pic %}
+    {% endblock %}
+</body>
+
+</html>
