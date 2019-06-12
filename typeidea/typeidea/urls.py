@@ -29,7 +29,6 @@ urlpatterns = [
     url(r'^post/(?P<post_id>\d+).htmls/$', post_detail),
     url(r'^links/$', links),
 
-    url(r'^wind/pic/$', wv.getimage, name='wind_pic_test'),
     url(r'^wind/$', wv.DbListView.as_view(), name='wind_home'),
     url(r'^wind/(?P<slug>[a-zA-Z0-9_-]*).html/$', wv.TableListView.as_view(), name='db_view'),
     url(r'^wind/(?P<db>[a-zA-Z0-9_-]*)/(?P<table>[a-zA-Z0-9_-]*).html/$',

@@ -27,6 +27,7 @@ import random
 import io
 import base64
 import pandas as pd
+import sys
 
 # logger setting
 lg = logging.getLogger('view')
@@ -128,6 +129,7 @@ class TableDetailView(ListView):
 
     def __init__(self, *args,  **kwargs):
         self.df ={}
+        self.name = self.__class__.__name__
         lg.debug("now in {0}".format("TableDetailView.__init__"))
         super().__init__(*args, **kwargs)
 
@@ -160,6 +162,7 @@ class TableDetailView(ListView):
 
         if self.request.GET.get('time_btn_clicked'):
             start, stop = self.get_time()
+            self.request.session['timeset']= True
             self.request.session['tstart']= start
             self.request.session['tstop']= stop
             lg.debug("get_queryset.time_btn_clicked\nstart_time:{0} stop_time:{1}".
@@ -195,8 +198,14 @@ class TableDetailView(ListView):
     def get_data(self):
         start = self.request.session.get('tstart', None)
         stop = self.request.session.get('tstop', None)
-        if not (start or stop):
+        newtime = self.request.session.get('timeset', None)
+        if not (start and stop and newtime):
+            lg.warning("time not set correct \nstart\t{0}\nstop\t{1}\ntimebutton={2}"
+                    .format(start, stop, newtime))
+
+
             return -1
+
         lg.debug("start time:{}".format(start))
         lg.debug("stop time:{}".format(stop))
 
@@ -219,15 +228,18 @@ class TableDetailView(ListView):
         lg.debug("filter = {}".format(qfilter))
         lg.debug("projection = {}".format(projection))
 
-        df = pd.DataFrame(list(mon.connect_mongo()[self.kwargs['db']][self.kwargs['table']].find(qfilter, projection).limit(200)))
+        df = pd.DataFrame(list(mon.connect_mongo()[self.kwargs['db']][self.kwargs['table']].find(qfilter, projection)))
         lg.debug("db = {0}\n table = {1}".format([self.kwargs['db']], [self.kwargs['table']]))
         lg.debug("here is findings:\n {}".format(df))
+
+        self.request.session['timeset']= None
+        df.to_pickle("./dummy.pkl")
         return  df.to_html()
 
 
 
     def get_context_data(self, *args, **kwargs):
-        lg.debug("now in {0}".format("TableDetailView.get_context_data"))
+        lg.debug("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
         self.context = {}
         lg.debug("session now is {}".format(self.get_session()))
         self.df = self.get_data()
@@ -237,12 +249,13 @@ class TableDetailView(ListView):
             'model_db': self.kwargs['db'],
             'model_table': self.kwargs['table'],
             'dbs': Database.objects.all(),
+            # time picker
             'form':QueryTimeForm(),
             'df' : self.df
 
             })
 
-        lg.debug("context is  {0}".format(self.context))
+        #lg.debug("context is  {0}".format(self.context))
         lg.debug("now exit {0}".format("TableDetailView.get_context_data"))
         return self.context
 
@@ -257,47 +270,72 @@ class ImageView(TableDetailView):
         super().__init__(*args, **kwargs)
         self.btn_sw = {}
 
-    def get(self, *args,  **kwargs):
-        super().get(self, *args,  **kwargs)
-        lg.debug("now in {0}".format("ImageView.get{}".format(self.request)))
-
-        return render(self.request, 'wind/pic.html', self.context)
-
+#    def get(self, *args,  **kwargs):
+#        super().get(self, *args,  **kwargs)
+#        lg.debug("now in {0}".format("ImageView.get{}".format(self.request)))
+#
+#        return render(self.request, 'wind/pic.html', self.context)
+#
 
     def get_context_data(self, *args, **kwargs):
-        #lg.debug(self.kwargs)
-        lg.debug("now in {0}".format("ImageView.get_context_data"))
+        lg.debug("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
         self.context = super().get_context_data(*args, **kwargs)
         if self.btn_sw.get('draw',None):
-            lg.debug("now is draw")
-            pic = self.getimage(self.request)['inline_png']
+            pic = self.get_image(self.request)['inline_png']
             self.context.update({
                 'inline_png':pic
                 })
-        lg.debug("get message:\n{}".format(self.request.GET))
         return self.context
 
 
-    def get_queryset(self):
-        lg.debug("now in {0}".format("ImageView.get_queryset"))
-        lg.debug("reuqestis:\n{}".format(self.request))
+    def get_queryset(self, *args, **kwargs):
+        lg.debug("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
+        super().get_queryset(*args, **kwargs)
         if self.request.GET.get('draw_btn_clicked'):
             lg.debug("ImageView.get_queryset.draw_btn_clicked")
             self.btn_sw.update({
                 'draw':True
                 })
-        if self.request.GET.get('time_btn_clicked'):
-            tstart = self.request.GET.get('start_time')
-            tstop = self.request.GET.get('end_time')
-            lg.debug("ImageView.get_queryset.time_btn_clicked\nstart_time:{0} stop_time:{1}".
-                    format(tstart, tstop)
-
-                    )
 
 
 
 
-    def getimage(self, request):
+    def get_image(self, request):
+        from pandas.plotting import register_matplotlib_converters
+        register_matplotlib_converters()
+
+        lg.debug("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
+        plt.style.use("./mystyle")
+        # Construct the graph
+        fig, ax = plt.subplots(nrows=3, ncols=1,figsize=(12,18))
+        df = pd.read_pickle("./dummy.pkl")
+        try:
+            ax[0].plot(df['TimeStamp'],df['WindSpeed'])
+            ax[0].plot(df['TimeStamp'],df['PitchPositionBlade1'])
+            ax[0].xaxis.set_major_formatter(DateFormatter('%Y-%m-%d %H:%M'))
+        except:
+            pass
+        try:
+            sctr = ax[1].scatter(x=df['WindSpeed'], y=df['Power'],c=df['Power'], cmap='winter_r')
+            #plt.colorbar(sctr, ax=ax[1], format='%d')
+        except:
+            lg.exception("exceptions")
+        fig.autofmt_xdate()
+        fig.tight_layout()
+        canvas=FigureCanvasAgg(fig)
+        buf = io.BytesIO()
+        #plt.savefig(buf, format='png')
+        canvas.print_png(buf)
+        #plt.close(fig)
+        ret = {}
+        #ret['inline_png']= base64.b64encode(buf.getvalue()) for python3, need to add decode
+        ret['inline_png']= base64.b64encode(buf.getvalue()).decode()
+        response=HttpResponse(buf.getvalue(),content_type='image/png')
+        return ret
+        #return render(request, 'wind/pic.html', ret)
+
+    def getimage1(self, request):
+        lg.debug("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
         # Construct the graph
         fig, ax = plt.subplots()
         x=[]
@@ -323,28 +361,3 @@ class ImageView(TableDetailView):
         return ret
         #return render(request, 'wind/pic.html', ret)
 
-def getimage(request):
-    # Construct the graph
-    fig, ax = plt.subplots()
-    x=[]
-    y=[]
-    now=datetime.datetime.now()
-    delta=datetime.timedelta(days=1)
-    for i in range(10):
-        x.append(now)
-        now+=delta
-        y.append(random.randint(0, 1000))
-    ax.plot_date(x, y, '-')
-    ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
-    fig.autofmt_xdate()
-    canvas=FigureCanvasAgg(fig)
-    buf = io.BytesIO()
-    #plt.savefig(buf, format='png')
-    canvas.print_png(buf)
-    #plt.close(fig)
-    ret = {}
-    #ret['inline_png']= base64.b64encode(buf.getvalue())
-    ret['inline_png']= base64.b64encode(buf.getvalue()).decode()
-    response=HttpResponse(buf.getvalue(),content_type='image/png')
-    #return ret
-    return render(request, 'wind/pic.html', ret)
