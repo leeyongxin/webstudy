@@ -19,6 +19,15 @@ import json
 import logging
 import datetime
 
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.dates import DateFormatter
+import matplotlib.pyplot as plt
+import random
+import io
+import base64
+import pandas as pd
+
 # logger setting
 lg = logging.getLogger('view')
 ch = logging.StreamHandler()
@@ -112,92 +121,135 @@ class TableListView(DbListView, ListView):
             if col.col_name not in table_list:
                 col.delete()
 
-class TitleSearchMixin():
-
-    def get_queryset(self,q=None):
-        # fetch queryset from the parent's get_queryset
-        lg.debug("now in {0}".format("TitleSearchMixin.get_queryset"))
-        queryset = super().get_queryset()
-        lg.debug("TitleSearchMixin.queryset =\n {0}".format(queryset))
-
-        # get the q GET parameter
-        v = self.request.GET.get(q)
-        if v:
-            #return a filtered queryset
-            #return queryset.filter(title__iconstains=v)
-            return v
-
-        # no q is specified then we return queryset
-        return queryset
 
 class TableDetailView(ListView):
     template_name = 'wind/home.html'
-    queryset = DbTable.objects.all()
+    queryset = ''
 
+    def __init__(self, *args,  **kwargs):
+        self.df ={}
+        lg.debug("now in {0}".format("TableDetailView.__init__"))
+        super().__init__(*args, **kwargs)
+
+#    def get(self, *args,  **kwargs):
+#        #super().get(self, *args,  **kwargs)
+#        lg.debug("now in {0}".format("TableDetailView.get\n{}".format(self.request)))
+#
+#        return render(self.request, 'wind/home.html', self.context)
+#
+    def post(self, *args,  **kwargs):
+       lg.debug("now in {0}".format("TableDetailView.post{}".format(self.request)))
+       fields = self.request.POST.getlist('check')
+       lg.debug("checked items {}".format(fields))
+       lg.debug("checked items {}".format(self.request))
+
+       return render(self.request, 'wind/home.html')
 
 
     def get_queryset(self, *args,  **kwargs):
         lg.debug("now in {0}".format("TableDetailView.get_queryset"))
+
+        if self.request.session.get('table') != None:
+            if self.request.session['table'] == self.kwargs['table']:
+                pass
+            else:
+                self.init_session()
+        else:
+            self.init_session()
+
+
         if self.request.GET.get('time_btn_clicked'):
-            tstart = self.request.GET.get('start_time').replace("T"," ")
-            lg.debug("start time = {}".format(tstart))
-            tstart = datetime.datetime.strptime(tstart, "%Y-%m-%d %H:%M")
-            lg.debug("start time = {}".format(tstart))
+            start, stop = self.get_time()
+            self.request.session['tstart']= start
+            self.request.session['tstop']= stop
+            lg.debug("get_queryset.time_btn_clicked\nstart_time:{0} stop_time:{1}".
+                format(start, stop)
+                )
 
-            tstop = self.request.GET.get('end_time').replace("T"," ")
-            tstop = datetime.datetime.strptime(tstop, "%Y-%m-%d %H:%M")
-            lg.debug("TableListView.get_queryset.time_btn_clicked\nstart_time:{0} stop_time:{1}".
-                    format(tstart, tstop)
+        if self.request.GET.get('check_btn_clicked'):
+            fields = self.request.GET.getlist('check')
+            lg.debug("checked items {}".format(fields))
+            self.request.session['fields']= fields
+            hlist = self.request.session['headlist']
+            showlist = [(x, y) for x, y in hlist if str(x) in self.request.session['fields']]
+            self.request.session['headlist']= showlist
 
-                    )
-            self.get_data(tstart, tstop)
+    def get_session(self):
+        return list(self.request.session.items())
 
 
-    def get_data(self, start, stop):
+    def init_session(self):
+            lg.info("switch table, flush old session")
+            lg.debug(self.get_session())
+
+            self.request.session.flush()
+            self.request.session['table'] = self.kwargs['table']
+            headlist = DbTable.objects.get(col_name=self.kwargs['table']).get_col_head()
+            self.request.session['headlist'] = list(enumerate(headlist))
+
+    def get_time(self):
+        tstart = self.request.GET.get('start_time').replace("T"," ")
+        tstop = self.request.GET.get('end_time').replace("T"," ")
+        return tstart, tstop
+
+    def get_data(self):
+        start = self.request.session.get('tstart', None)
+        stop = self.request.session.get('tstop', None)
+        if not (start or stop):
+            return -1
+        lg.debug("start time:{}".format(start))
+        lg.debug("stop time:{}".format(stop))
+
+        start = datetime.datetime.strptime(start, "%Y-%m-%d %H:%M")
+        stop = datetime.datetime.strptime(stop, "%Y-%m-%d %H:%M")
         mon = Mongo()
         # add talbe if notexist
         #query1 = "find({'time':{'$gt':{0},'$lt':{1}}, \
         #                'Power':{'$lt':1700},                           \
         #                'SubState':{'$eq':30}},                         \
         #               {'_id':0,'time':1,'WindSpeed':1,'Power':1, 'PitchDemand':1})".format()
-        query = {'TimeStamp':{'$gt':start,'$lt':stop}}
-        lg.debug("query = {}".format(query))
+        selected = dict(self.request.session['headlist'])
+        selected = dict(zip(selected.values(), selected.keys()))
+        selected = selected.fromkeys((k for k in selected.keys()), 1)
+        projection = {'TimeStamp':1, '_id':0}
+        projection.update(selected)
+        lg.debug("selected columns{}".format(projection))
+        qfilter = {'TimeStamp':{'$gt':start,'$lt':stop}}
 
-        headlist = pd.DataFrame(list(mon.connect_mongo()[self.kwargs['db']][self.kwargs['table']].find(query).limit(2)))
+        lg.debug("filter = {}".format(qfilter))
+        lg.debug("projection = {}".format(projection))
+
+        df = pd.DataFrame(list(mon.connect_mongo()[self.kwargs['db']][self.kwargs['table']].find(qfilter, projection).limit(200)))
         lg.debug("db = {0}\n table = {1}".format([self.kwargs['db']], [self.kwargs['table']]))
-        lg.debug("here is findings:\n {}".format(headlist))
+        lg.debug("here is findings:\n {}".format(df))
+        return  df.to_html()
 
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        headlist = DbTable.objects.get(col_name=self.kwargs['table']).get_col_head()
-        hlist = list(enumerate(headlist))
-        context.update({
+
+    def get_context_data(self, *args, **kwargs):
+        lg.debug("now in {0}".format("TableDetailView.get_context_data"))
+        self.context = {}
+        lg.debug("session now is {}".format(self.get_session()))
+        self.df = self.get_data()
+        self.context.update({
             'collections':DbTable.objects.filter(db=self.kwargs['db']),
-            'headlist': hlist,
+            'headlist': self.request.session['headlist'],
             'model_db': self.kwargs['db'],
             'model_table': self.kwargs['table'],
             'dbs': Database.objects.all(),
-            'form':QueryTimeForm()
+            'form':QueryTimeForm(),
+            'df' : self.df
 
             })
-        return context
 
-    def post(self, request, db, table):
-        lg.debug("now in {0}".format("TableDetailView.post"))
+        lg.debug("context is  {0}".format(self.context))
+        lg.debug("now exit {0}".format("TableDetailView.get_context_data"))
+        return self.context
 
-        return render(request, 'wind/base.html', {'db':db, 'table':table})
+class SelectedView(TableDetailView):
+    template_name = 'wind/home.html'
 
 
-
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-from matplotlib.dates import DateFormatter
-import matplotlib.pyplot as plt
-import random
-import io
-import base64
-import pandas as pd
 
 class ImageView(TableDetailView):
     template_name = 'wind/pic.html'
@@ -205,28 +257,30 @@ class ImageView(TableDetailView):
         super().__init__(*args, **kwargs)
         self.btn_sw = {}
 
+    def get(self, *args,  **kwargs):
+        super().get(self, *args,  **kwargs)
+        lg.debug("now in {0}".format("ImageView.get{}".format(self.request)))
+
+        return render(self.request, 'wind/pic.html', self.context)
+
 
     def get_context_data(self, *args, **kwargs):
         #lg.debug(self.kwargs)
-        context = super().get_context_data(**kwargs)
+        lg.debug("now in {0}".format("ImageView.get_context_data"))
+        self.context = super().get_context_data(*args, **kwargs)
         if self.btn_sw.get('draw',None):
+            lg.debug("now is draw")
             pic = self.getimage(self.request)['inline_png']
-            context.update({
+            self.context.update({
                 'inline_png':pic
                 })
         lg.debug("get message:\n{}".format(self.request.GET))
-        return context
+        return self.context
 
-#    def get(self, *args, **kwargs):
-#        lg.debug("get message:\n{}".format(self.request.GET))
-#        qstart = self.request.GET.get("start_time")
-#        qstop = self.request.GET.get("end_time")
-#        lg.debug("now in ImageView.get:\n{}{}".format(qstart, qstop))
-#        return render(self.request, 'wind/base.html')
 
     def get_queryset(self):
         lg.debug("now in {0}".format("ImageView.get_queryset"))
-        lg("reuqestis:\n{}".format(self.request))
+        lg.debug("reuqestis:\n{}".format(self.request))
         if self.request.GET.get('draw_btn_clicked'):
             lg.debug("ImageView.get_queryset.draw_btn_clicked")
             self.btn_sw.update({
@@ -240,21 +294,7 @@ class ImageView(TableDetailView):
 
                     )
 
-            #self.get_data(tstart, tstop)
 
-#
-
-    def get_data(self, start, stop):
-        mon = Mongo()
-        # add talbe if notexist
-        #query1 = "find({'time':{'$gt':{0},'$lt':{1}}, \
-        #                'Power':{'$lt':1700},                           \
-        #                'SubState':{'$eq':30}},                         \
-        #               {'_id':0,'time':1,'WindSpeed':1,'Power':1, 'PitchDemand':1})".format()
-        query = "find({'time':{'$gt':{0},'$lt':{1}})".format(start, stop)
-
-        headlist = pd.DataFrame(list(mon.connect_mongo()[self.kwargs['db']][self.kwargs['table']].find(eval(query)).limit(2)))
-        lg.debug("here is findings:\n {}".format(headlist))
 
 
     def getimage(self, request):

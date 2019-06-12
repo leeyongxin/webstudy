@@ -36,6 +36,8 @@ urlpatterns = [
             wv.TableDetailView.as_view(), name='table_view'),
     url(r'^wind/(?P<db>[a-zA-Z0-9_-]*)/(?P<table>[a-zA-Z0-9_-]*)/pic/$',
             wv.ImageView.as_view(), name='pic_view'),
+    url(r'^wind/(?P<db>[a-zA-Z0-9_-]*)/(?P<table>[a-zA-Z0-9_-]*)/selected/$',
+            wv.SelectedView.as_view(), name='sel_view'),
     url('^super_admin/', admin.site.urls),
     url('^admin/', custom_site.urls),
 ]
