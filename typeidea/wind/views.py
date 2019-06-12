@@ -11,6 +11,7 @@ Last modified: 2019-05-22 00:37:56
 """
 from django.shortcuts import render, redirect, render_to_response, reverse
 from django.shortcuts import HttpResponse
+from django.http import StreamingHttpResponse
 from django.views.generic import DetailView, ListView, TemplateView
 from .models import Database, DbTable
 from .funlib import Mongo
@@ -129,9 +130,7 @@ class TableDetailView(ListView):
 
     def __init__(self, *args,  **kwargs):
         self.df ={}
-        self.name = self.__class__.__name__
         lg.debug("now in {0}".format("TableDetailView.__init__"))
-        super().__init__(*args, **kwargs)
 
 #    def get(self, *args,  **kwargs):
 #        #super().get(self, *args,  **kwargs)
@@ -139,6 +138,17 @@ class TableDetailView(ListView):
 #
 #        return render(self.request, 'wind/home.html', self.context)
 #
+    def get(self, *args,  **kwargs):
+        #super().get(self, *args,  **kwargs)
+        lg.debug("now in {0}".format("TableDetailView.get\n{}".format(self.request)))
+        if self.request.GET.get('download_btn_clicked'):
+            lg.debug("click download button")
+            self.request.session['download']= True
+            res = self.big_file_download()
+            return res
+
+        return render(self.request, 'wind/home.html', self.context)
+
     def post(self, *args,  **kwargs):
        lg.debug("now in {0}".format("TableDetailView.post{}".format(self.request)))
        fields = self.request.POST.getlist('check')
@@ -177,6 +187,29 @@ class TableDetailView(ListView):
             showlist = [(x, y) for x, y in hlist if str(x) in self.request.session['fields']]
             self.request.session['headlist']= showlist
 
+
+
+    def big_file_download(request):
+        # do something...
+
+        def file_iterator(file_name, chunk_size=512):
+            with open('./export.csv') as f:
+                while True:
+                    c = f.read(chunk_size)
+                    if c:
+                        yield c
+                    else:
+                        break
+
+        the_file_name = "export.csv"
+        response = StreamingHttpResponse(file_iterator(the_file_name))
+        response['Content-Type'] = 'application/octet-stream'
+        response['Content-Disposition'] = 'attachment;filename="{0}"'.format(the_file_name)
+
+        return response
+
+
+
     def get_session(self):
         return list(self.request.session.items())
 
@@ -212,11 +245,6 @@ class TableDetailView(ListView):
         start = datetime.datetime.strptime(start, "%Y-%m-%d %H:%M")
         stop = datetime.datetime.strptime(stop, "%Y-%m-%d %H:%M")
         mon = Mongo()
-        # add talbe if notexist
-        #query1 = "find({'time':{'$gt':{0},'$lt':{1}}, \
-        #                'Power':{'$lt':1700},                           \
-        #                'SubState':{'$eq':30}},                         \
-        #               {'_id':0,'time':1,'WindSpeed':1,'Power':1, 'PitchDemand':1})".format()
         selected = dict(self.request.session['headlist'])
         selected = dict(zip(selected.values(), selected.keys()))
         selected = selected.fromkeys((k for k in selected.keys()), 1)
@@ -270,12 +298,12 @@ class ImageView(TableDetailView):
         super().__init__(*args, **kwargs)
         self.btn_sw = {}
 
-#    def get(self, *args,  **kwargs):
-#        super().get(self, *args,  **kwargs)
-#        lg.debug("now in {0}".format("ImageView.get{}".format(self.request)))
-#
-#        return render(self.request, 'wind/pic.html', self.context)
-#
+    def get(self, *args,  **kwargs):
+        super().get(self, *args,  **kwargs)
+        lg.debug("now in {0}".format("ImageView.get{}".format(self.request)))
+
+        return render(self.request, 'wind/pic.html', self.context)
+
 
     def get_context_data(self, *args, **kwargs):
         lg.debug("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
@@ -305,9 +333,11 @@ class ImageView(TableDetailView):
         register_matplotlib_converters()
 
         lg.debug("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
-        plt.style.use("./mystyle")
+        #set style
+        plt.style.use(['ggplot', "./mystyle"])
         # Construct the graph
         fig, ax = plt.subplots(nrows=3, ncols=1,figsize=(12,18))
+
         df = pd.read_pickle("./dummy.pkl")
         try:
             ax[0].plot(df['TimeStamp'],df['WindSpeed'])

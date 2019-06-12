@@ -1,3 +1,4 @@
 typeidea/wind/migrations/*
 typeidea/dummy.pkl
 *__pycache__*
+typeidea/export.csv
