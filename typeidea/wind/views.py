@@ -29,6 +29,7 @@ import io
 import base64
 import pandas as pd
 import sys
+from .utility import get_data
 
 # logger setting
 lg = logging.getLogger('view')
@@ -123,43 +124,80 @@ class TableListView(DbListView, ListView):
             if col.col_name not in table_list:
                 col.delete()
 
+class BaseMixin():
+    '''
+    base mixin, return None to mark as top
+    '''
+    def get(self, *args,  **kwargs):
+        return None
 
-class TableDetailView(ListView):
+class DrawMixin(BaseMixin):
+    def get(self, *args,  **kwargs):
+        lg.info("now is in DrawMixin.{}".format(sys._getframe().f_code.co_name))
+        if self.request.GET.get('draw_btn_clicked'):
+            self.get_queryset(*args,  **kwargs)
+            self.get_context_data(*args,  **kwargs)
+            lg.info("now is exit DrawMixin.{} with draw".format(sys._getframe().f_code.co_name))
+            return render(self.request, 'wind/pic.html', self.context)
+        lg.info("now is exit DrawMixin.{} without draw".format(sys._getframe().f_code.co_name))
+        return super().get(*args,  **kwargs)
+
+
+
+class DownloadMixin(BaseMixin):
+
+    def get(self, *args,  **kwargs):
+        lg.info("now is in DownloadMixin.{}".format(sys._getframe().f_code.co_name))
+        if self.request.GET.get('download_btn_clicked'):
+            lg.debug("click download button")
+            lg.info("now is exit DownloadMixin.{} with download".format(sys._getframe().f_code.co_name))
+            return self.big_file_download()
+
+        lg.info("now is exit DownloadMixin.{} without download".format(sys._getframe().f_code.co_name))
+        return super().get(*args,  **kwargs)
+
+
+
+
+class TableDetailView(DownloadMixin, ListView):
     template_name = 'wind/home.html'
     queryset = ''
 
+
     def __init__(self, *args,  **kwargs):
+        lg.info("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
         self.df ={}
-        lg.debug("now in {0}".format("TableDetailView.__init__"))
+        self.conn = Mongo().connect_mongo()
+        lg.info("now is exit TableDetailView.{}".format(sys._getframe().f_code.co_name))
 
-#    def get(self, *args,  **kwargs):
-#        #super().get(self, *args,  **kwargs)
-#        lg.debug("now in {0}".format("TableDetailView.get\n{}".format(self.request)))
-#
-#        return render(self.request, 'wind/home.html', self.context)
-#
     def get(self, *args,  **kwargs):
-        #super().get(self, *args,  **kwargs)
-        lg.debug("now in {0}".format("TableDetailView.get\n{}".format(self.request)))
-        if self.request.GET.get('download_btn_clicked'):
-            lg.debug("click download button")
-            self.request.session['download']= True
-            res = self.big_file_download()
-            return res
+        lg.info("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
 
-        return render(self.request, 'wind/home.html', self.context)
+        sget = super().get(self, *args,  **kwargs)
+
+        if sget:
+            lg.info("now use TableDetailView.{} super's get content".format(sys._getframe().f_code.co_name))
+            return sget
+        else:
+            lg.info("now use TableDetailView.{} 's get content".format(sys._getframe().f_code.co_name))
+            self.get_queryset(*args,  **kwargs)
+            self.get_context_data(*args,  **kwargs)
+
+
+            lg.info("now exit in TableDetailView.{}".format(sys._getframe().f_code.co_name))
+            return render(self.request, 'wind/home.html', self.context)
 
     def post(self, *args,  **kwargs):
-       lg.debug("now in {0}".format("TableDetailView.post{}".format(self.request)))
-       fields = self.request.POST.getlist('check')
-       lg.debug("checked items {}".format(fields))
-       lg.debug("checked items {}".format(self.request))
+        lg.debug("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
+        fields = self.request.POST.getlist('check')
+        lg.debug("checked items {}".format(fields))
+        lg.debug("checked items {}".format(self.request))
 
-       return render(self.request, 'wind/home.html')
+        return render(self.request, 'wind/home.html')
 
 
     def get_queryset(self, *args,  **kwargs):
-        lg.debug("now in {0}".format("TableDetailView.get_queryset"))
+        lg.info("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
 
         if self.request.session.get('table') != None:
             if self.request.session['table'] == self.kwargs['table']:
@@ -186,6 +224,24 @@ class TableDetailView(ListView):
             hlist = self.request.session['headlist']
             showlist = [(x, y) for x, y in hlist if str(x) in self.request.session['fields']]
             self.request.session['headlist']= showlist
+
+        lg.info("now is exit TableDetailView.{}".format(sys._getframe().f_code.co_name))
+
+    def read_avail(self,database, collection,columns):
+
+
+         cursor1 = self.conn[database][collection].find({},{'_id':1,columns:1}).sort([(columns,1)]).limit(1)
+         cursor2 = self.conn[database][collection].find({},{'_id':1,columns:1}).sort([(columns,-1)]).limit(1)
+         df1 = pd.DataFrame(list(cursor1))
+         df2 = pd.DataFrame(list(cursor2))
+         if isinstance(df1[columns][0],pd._libs.tslibs.timestamps.Timestamp):
+             start_data = df1[columns][0]
+         if isinstance(df1[columns][0],pd._libs.tslibs.timestamps.Timestamp):
+             end_data =df2[columns][0]
+         else:
+             start_data =pd.datetime.now()
+             end_data= pd.datetime.now()
+         return start_data,end_data
 
 
 
@@ -215,28 +271,29 @@ class TableDetailView(ListView):
 
 
     def init_session(self):
-            lg.info("switch table, flush old session")
-            lg.debug(self.get_session())
+        lg.debug("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
+        lg.info("switch table, flush old session")
+        lg.debug(self.get_session())
 
-            self.request.session.flush()
-            self.request.session['table'] = self.kwargs['table']
-            headlist = DbTable.objects.get(col_name=self.kwargs['table']).get_col_head()
-            self.request.session['headlist'] = list(enumerate(headlist))
+        self.request.session.flush()
+        self.request.session['table'] = self.kwargs['table']
+        headlist = DbTable.objects.get(col_name=self.kwargs['table']).get_col_head()
+        self.request.session['headlist'] = list(enumerate(headlist))
 
     def get_time(self):
+        lg.debug("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
         tstart = self.request.GET.get('start_time').replace("T"," ")
         tstop = self.request.GET.get('end_time').replace("T"," ")
         return tstart, tstop
 
     def get_data(self):
+        lg.debug("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
         start = self.request.session.get('tstart', None)
         stop = self.request.session.get('tstop', None)
         newtime = self.request.session.get('timeset', None)
         if not (start and stop and newtime):
             lg.warning("time not set correct \nstart\t{0}\nstop\t{1}\ntimebutton={2}"
                     .format(start, stop, newtime))
-
-
             return -1
 
         lg.debug("start time:{}".format(start))
@@ -244,7 +301,6 @@ class TableDetailView(ListView):
 
         start = datetime.datetime.strptime(start, "%Y-%m-%d %H:%M")
         stop = datetime.datetime.strptime(stop, "%Y-%m-%d %H:%M")
-        mon = Mongo()
         selected = dict(self.request.session['headlist'])
         selected = dict(zip(selected.values(), selected.keys()))
         selected = selected.fromkeys((k for k in selected.keys()), 1)
@@ -256,21 +312,29 @@ class TableDetailView(ListView):
         lg.debug("filter = {}".format(qfilter))
         lg.debug("projection = {}".format(projection))
 
-        df = pd.DataFrame(list(mon.connect_mongo()[self.kwargs['db']][self.kwargs['table']].find(qfilter, projection)))
+        df = pd.DataFrame(list(self.conn[self.kwargs['db']][self.kwargs['table']].find(qfilter, projection)))
         lg.debug("db = {0}\n table = {1}".format([self.kwargs['db']], [self.kwargs['table']]))
         lg.debug("here is findings:\n {}".format(df))
 
         self.request.session['timeset']= None
         df.to_pickle("./dummy.pkl")
+        df.to_csv("./export.csv")
+        # put first 200 row into html
+        df = df.iloc[:200,:]
         return  df.to_html()
 
 
 
     def get_context_data(self, *args, **kwargs):
-        lg.debug("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
+        lg.info("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
         self.context = {}
         lg.debug("session now is {}".format(self.get_session()))
         self.df = self.get_data()
+        try:
+            self.time = self.read_avail(self.kwargs['db'],self.kwargs['table'], "TimeStamp")
+        except:
+            self.time = None
+            lg.exception("read time fail:")
         self.context.update({
             'collections':DbTable.objects.filter(db=self.kwargs['db']),
             'headlist': self.request.session['headlist'],
@@ -279,60 +343,48 @@ class TableDetailView(ListView):
             'dbs': Database.objects.all(),
             # time picker
             'form':QueryTimeForm(),
-            'df' : self.df
+            'df' : self.df,
+            'table_time': self.time
 
             })
 
         #lg.debug("context is  {0}".format(self.context))
-        lg.debug("now exit {0}".format("TableDetailView.get_context_data"))
+        lg.info("now is exit TableDetailView.{}".format(sys._getframe().f_code.co_name))
         return self.context
 
 class SelectedView(TableDetailView):
     template_name = 'wind/home.html'
 
+        #return render(self.request, 'wind/home.html', self.context)
 
 
-class ImageView(TableDetailView):
+class ImageView(DrawMixin, TableDetailView):
     template_name = 'wind/pic.html'
     def __init__(self, *args, **kwargs):
+        lg.info("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
         super().__init__(*args, **kwargs)
-        self.btn_sw = {}
-
-    def get(self, *args,  **kwargs):
-        super().get(self, *args,  **kwargs)
-        lg.debug("now in {0}".format("ImageView.get{}".format(self.request)))
-
-        return render(self.request, 'wind/pic.html', self.context)
+        lg.info("now is exit ImageView.{}".format(sys._getframe().f_code.co_name))
 
 
     def get_context_data(self, *args, **kwargs):
-        lg.debug("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
+        lg.info("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
         self.context = super().get_context_data(*args, **kwargs)
-        if self.btn_sw.get('draw',None):
-            pic = self.get_image(self.request)['inline_png']
-            self.context.update({
-                'inline_png':pic
-                })
-        return self.context
-
-
-    def get_queryset(self, *args, **kwargs):
-        lg.debug("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
-        super().get_queryset(*args, **kwargs)
         if self.request.GET.get('draw_btn_clicked'):
             lg.debug("ImageView.get_queryset.draw_btn_clicked")
-            self.btn_sw.update({
-                'draw':True
-                })
+            pic = self.get_image(self.request)['inline_png']
+            self.context.update({
+                 'inline_png':pic
+            })
+            lg.info("now is exit ImageView.{} with pic updated".format(sys._getframe().f_code.co_name))
+            return self.context
 
-
-
-
+        lg.info("now is exit ImageView.{} without pic updated".format(sys._getframe().f_code.co_name))
+#
     def get_image(self, request):
+        lg.debug("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
         from pandas.plotting import register_matplotlib_converters
         register_matplotlib_converters()
 
-        lg.debug("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
         #set style
         plt.style.use(['ggplot', "./mystyle"])
         # Construct the graph
@@ -341,8 +393,9 @@ class ImageView(TableDetailView):
         df = pd.read_pickle("./dummy.pkl")
         try:
             ax[0].plot(df['TimeStamp'],df['WindSpeed'])
-            ax[0].plot(df['TimeStamp'],df['PitchPositionBlade1'])
-            ax[0].xaxis.set_major_formatter(DateFormatter('%Y-%m-%d %H:%M'))
+            #ax[0].plot(df['TimeStamp'],df['PitchPositionBlade1'])
+            ax[0].xaxis.set_major_formatter(DateFormatter('%m-%d %H:%M'))
+            fig.autofmt_xdate()
         except:
             pass
         try:
@@ -350,7 +403,6 @@ class ImageView(TableDetailView):
             #plt.colorbar(sctr, ax=ax[1], format='%d')
         except:
             lg.exception("exceptions")
-        fig.autofmt_xdate()
         fig.tight_layout()
         canvas=FigureCanvasAgg(fig)
         buf = io.BytesIO()

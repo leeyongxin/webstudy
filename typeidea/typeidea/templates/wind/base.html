@@ -81,6 +81,7 @@
 						</thead>
 						<tbody>
               <form method="get" action="{% url 'sel_view' db=model_db table=model_table %}">
+                  {{ table_time }}
               {% for checkid, header in headlist %}
 							<tr>
 								<td>
