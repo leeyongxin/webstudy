@@ -36,14 +36,10 @@ lg = logging.getLogger('view')
 ch = logging.StreamHandler()
 formatter_f = logging.Formatter('[%(asctime)s][%(process)d:%(thread)d][%(levelname)s] %(message)s')
 ch.setFormatter(formatter_f)
-lg.setLevel(logging.DEBUG)
+lg.setLevel(logging.INFO)
 lg.addHandler(ch)
 
 # Create your views here.
-class TestHtml(TemplateView):
-    template_name = 'wind/example.html'
-def test(request):
-    return render_to_response('wind/example.html')
 
 
 
@@ -135,12 +131,18 @@ class DrawMixin(BaseMixin):
     def get(self, *args,  **kwargs):
         lg.info("now is in DrawMixin.{}".format(sys._getframe().f_code.co_name))
         if self.request.GET.get('draw_btn_clicked'):
-            self.get_queryset(*args,  **kwargs)
-            self.get_context_data(*args,  **kwargs)
-            lg.info("now is exit DrawMixin.{} with draw".format(sys._getframe().f_code.co_name))
-            return render(self.request, 'wind/pic.html', self.context)
-        lg.info("now is exit DrawMixin.{} without draw".format(sys._getframe().f_code.co_name))
-        return super().get(*args,  **kwargs)
+            context = self.get_context_data(*args, **kwargs)
+            self.request.session['pic'] = self.get_image(self.request)['inline_png']
+            context.update({
+                  'inline_png':self.request.session['pic']
+                           })
+            lg.info("Exit DrawMixin.{} with pic updated".format(sys._getframe().f_code.co_name))
+            return render(self.request, 'wind/pic.html', context)
+        else:
+            lg.info("now is exit DrawMixin.{} without pic updated".format(sys._getframe().f_code.co_name))
+            ret = super().get(*args,  **kwargs)
+            lg.info("DrawMixin return is {}".format(ret))
+            return ret
 
 
 
@@ -154,12 +156,49 @@ class DownloadMixin(BaseMixin):
             return self.big_file_download()
 
         lg.info("now is exit DownloadMixin.{} without download".format(sys._getframe().f_code.co_name))
-        return super().get(*args,  **kwargs)
+        ret = super().get(*args,  **kwargs)
+        lg.info("DownloadMixin return is {}".format(ret))
+        return ret
 
 
+class SetTimeMixin(BaseMixin):
+    def get(self, *args,  **kwargs):
+        lg.info("now is in SetTimeMixin.{}".format(sys._getframe().f_code.co_name))
+        if self.request.GET.get('time_btn_clicked'):
+            lg.debug("click set time button")
+            start, stop = self.get_time()
+            self.request.session['timeset']= True
+            self.request.session['tstart']= start
+            self.request.session['tstop']= stop
+            lg.debug("get_queryset.time_btn_clicked\nstart_time:{0} stop_time:{1}".
+                format(start, stop)
+                )
+            #read data after time changed
+            self.df = self.get_data()
+
+            # keep in image view page
+            if isinstance(self, ImageView):
+                self.get_queryset(*args,  **kwargs)
+                context = self.get_context_data(*args,  **kwargs)
+                # use previous drawed pic
+                context.update({
+                    'inline_png':self.request.session['pic']
+                })
+                lg.info("now is exit SetTimeMixin.{} with new time and Image page".format(sys._getframe().f_code.co_name))
+                return render(self.request, 'wind/pic.html', context)
+
+            lg.info("now is exit SetTimeMixin.{} with new time".format(sys._getframe().f_code.co_name))
+            ret = super().get(*args,  **kwargs)
+            lg.info("SetTimeMixin return is {}".format(ret))
+            return ret
+
+        lg.info("now is exit SetTimeMixin.{} with old time".format(sys._getframe().f_code.co_name))
+        ret = super().get(*args,  **kwargs)
+        lg.info("SetTimeMixin return is {}".format(ret))
+        return ret
 
 
-class TableDetailView(DownloadMixin, ListView):
+class TableDetailView(SetTimeMixin, DownloadMixin, ListView):
     template_name = 'wind/home.html'
     queryset = ''
 
@@ -173,19 +212,18 @@ class TableDetailView(DownloadMixin, ListView):
     def get(self, *args,  **kwargs):
         lg.info("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
 
+        # check if any mixin triggered
         sget = super().get(self, *args,  **kwargs)
-
         if sget:
             lg.info("now use TableDetailView.{} super's get content".format(sys._getframe().f_code.co_name))
+            # use mixin's get response
             return sget
         else:
             lg.info("now use TableDetailView.{} 's get content".format(sys._getframe().f_code.co_name))
             self.get_queryset(*args,  **kwargs)
-            self.get_context_data(*args,  **kwargs)
-
-
+            context = self.get_context_data(*args,  **kwargs)
             lg.info("now exit in TableDetailView.{}".format(sys._getframe().f_code.co_name))
-            return render(self.request, 'wind/home.html', self.context)
+            return render(self.request, 'wind/home.html', context)
 
     def post(self, *args,  **kwargs):
         lg.debug("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
@@ -207,16 +245,7 @@ class TableDetailView(DownloadMixin, ListView):
         else:
             self.init_session()
 
-
-        if self.request.GET.get('time_btn_clicked'):
-            start, stop = self.get_time()
-            self.request.session['timeset']= True
-            self.request.session['tstart']= start
-            self.request.session['tstop']= stop
-            lg.debug("get_queryset.time_btn_clicked\nstart_time:{0} stop_time:{1}".
-                format(start, stop)
-                )
-
+#
         if self.request.GET.get('check_btn_clicked'):
             fields = self.request.GET.getlist('check')
             lg.debug("checked items {}".format(fields))
@@ -327,15 +356,18 @@ class TableDetailView(DownloadMixin, ListView):
 
     def get_context_data(self, *args, **kwargs):
         lg.info("now is in TableDetailView.{}".format(sys._getframe().f_code.co_name))
-        self.context = {}
+        #context = super().get_context_data(*args, **kwargs)
+        context = {}
         lg.debug("session now is {}".format(self.get_session()))
-        self.df = self.get_data()
+
+        # read db first and last piece time
         try:
             self.time = self.read_avail(self.kwargs['db'],self.kwargs['table'], "TimeStamp")
         except:
             self.time = None
             lg.exception("read time fail:")
-        self.context.update({
+
+        context.update({
             'collections':DbTable.objects.filter(db=self.kwargs['db']),
             'headlist': self.request.session['headlist'],
             'model_db': self.kwargs['db'],
@@ -350,7 +382,7 @@ class TableDetailView(DownloadMixin, ListView):
 
         #lg.debug("context is  {0}".format(self.context))
         lg.info("now is exit TableDetailView.{}".format(sys._getframe().f_code.co_name))
-        return self.context
+        return context
 
 class SelectedView(TableDetailView):
     template_name = 'wind/home.html'
@@ -360,28 +392,11 @@ class SelectedView(TableDetailView):
 
 class ImageView(DrawMixin, TableDetailView):
     template_name = 'wind/pic.html'
-    def __init__(self, *args, **kwargs):
-        lg.info("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
-        super().__init__(*args, **kwargs)
-        lg.info("now is exit ImageView.{}".format(sys._getframe().f_code.co_name))
 
 
-    def get_context_data(self, *args, **kwargs):
-        lg.info("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
-        self.context = super().get_context_data(*args, **kwargs)
-        if self.request.GET.get('draw_btn_clicked'):
-            lg.debug("ImageView.get_queryset.draw_btn_clicked")
-            pic = self.get_image(self.request)['inline_png']
-            self.context.update({
-                 'inline_png':pic
-            })
-            lg.info("now is exit ImageView.{} with pic updated".format(sys._getframe().f_code.co_name))
-            return self.context
-
-        lg.info("now is exit ImageView.{} without pic updated".format(sys._getframe().f_code.co_name))
 #
     def get_image(self, request):
-        lg.debug("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
+        lg.info("now is in {}".format(sys._getframe().f_code.co_name))
         from pandas.plotting import register_matplotlib_converters
         register_matplotlib_converters()
 
@@ -400,21 +415,20 @@ class ImageView(DrawMixin, TableDetailView):
             pass
         try:
             sctr = ax[1].scatter(x=df['WindSpeed'], y=df['Power'],c=df['Power'], cmap='winter_r')
-            #plt.colorbar(sctr, ax=ax[1], format='%d')
         except:
             lg.exception("exceptions")
         fig.tight_layout()
         canvas=FigureCanvasAgg(fig)
         buf = io.BytesIO()
-        #plt.savefig(buf, format='png')
+
         canvas.print_png(buf)
-        #plt.close(fig)
+        plt.close(fig)
         ret = {}
         #ret['inline_png']= base64.b64encode(buf.getvalue()) for python3, need to add decode
         ret['inline_png']= base64.b64encode(buf.getvalue()).decode()
         response=HttpResponse(buf.getvalue(),content_type='image/png')
+        lg.info("now is exit {}".format(sys._getframe().f_code.co_name))
         return ret
-        #return render(request, 'wind/pic.html', ret)
 
     def getimage1(self, request):
         lg.debug("now is in ImageView.{}".format(sys._getframe().f_code.co_name))
