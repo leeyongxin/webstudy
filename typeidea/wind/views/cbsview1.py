@@ -12,10 +12,9 @@ Last modified: 2019-05-22 00:37:56
 from django.shortcuts import render, redirect, render_to_response, reverse
 from django.shortcuts import HttpResponse
 from django.http import StreamingHttpResponse
+from django.http import JsonResponse
 from django.views.generic import DetailView, ListView, TemplateView
-from .models import Database, DbTable
-from .funlib import Mongo
-from .forms import QueryTimeForm
+
 import json
 import logging
 import datetime
@@ -29,7 +28,11 @@ import io
 import base64
 import pandas as pd
 import sys
-from .utility import get_data
+
+from ..utility import yaw_align
+from ..models import Database, DbTable
+from ..funlib import Mongo
+from ..forms import QueryTimeForm
 
 # logger setting
 lg = logging.getLogger('view')
@@ -132,7 +135,8 @@ class DrawMixin(BaseMixin):
         lg.info("now is in DrawMixin.{}".format(sys._getframe().f_code.co_name))
         if self.request.GET.get('draw_btn_clicked'):
             context = self.get_context_data(*args, **kwargs)
-            self.request.session['pic'] = self.get_image(self.request)['inline_png']
+            #self.request.session['pic'] = self.get_image(self.request)['inline_png']
+            self.request.session['pic'] = yaw_align(lg)
             context.update({
                   'inline_png':self.request.session['pic']
                            })
@@ -457,3 +461,8 @@ class ImageView(DrawMixin, TableDetailView):
         return ret
         #return render(request, 'wind/pic.html', ret)
 
+class JS(TemplateView):
+    template_name = 'wind/js.html'
+    def get_data(self, request):
+        item = {"a":1, "b":2}
+        return JsonResponse(item)
