@@ -3,16 +3,14 @@ function showCustomer(value) {
   alert("success");
 }
 
-function test2(event) {
-  var urlstr = '/js_d'+event.data.para1+'/'
+function showpic(event) {
   $.ajax({
-    url: event.data.para2,
+    url: event.data.para1,
     
     type: 'get', // This is the default though, you don't actually need to always mention it
     dataType: 'json',
     success: function (data) {
       var picstring = "data:image/png;base64," + data['p1']
-      alert(picstring)
       $("#pic").attr("src", picstring)
     },
     failure: function (data) {

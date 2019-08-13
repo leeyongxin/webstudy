@@ -28,3 +28,12 @@ class QueryTime(models.Model):
     '''
     start_time = models.DateField()
     end_time = models.DateField()
+
+
+class MapColumn(models.Model):
+    '''
+    map coloumn head in raw table and in plot function's command
+    '''
+    pass
+
+

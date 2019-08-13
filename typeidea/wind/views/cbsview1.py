@@ -350,12 +350,23 @@ class TableDetailView(SetTimeMixin, DownloadMixin, ListView):
         lg.debug("here is findings:\n {}".format(df))
 
         self.request.session['timeset']= None
+
+        # remove this line after namemap developed
+        namemap = None
+
+        if isinstance(namemap, dict):
+            self.column_rename(df,namemap)
         df.to_pickle("./dummy.pkl")
         df.to_csv("./export.csv")
         # put first 200 row into html
         df = df.iloc[:200,:]
         return  df.to_html()
 
+    def column_rename(self,df, namemap):
+        '''
+        replace column name with given map, if exist
+        '''
+        df.rename(column=namemap, inplace=True)
 
 
     def get_context_data(self, *args, **kwargs):

@@ -28,21 +28,9 @@
     <!-- add listener -->
     <script>
         $(document).ready(function () {
-            $("#btn1").click(function () {
-                $.ajax({
-                    url: "{% url 'jst' 0 %}",
-                    type: 'get', // This is the default though, you don't actually need to always mention it
-                    dataType: 'json',
-                    success: function (data) {
-                        var picstring = "data:image/png;base64," + data['p1']
-                        $("#pic").attr("src", picstring)
-                    },
-                    failure: function (data) {
-                        alert('Got an error dude');
-                    }
-                });
-            });
-            $("#btn2").click({para1:'1',para2:"{% url 'jst' 1 %}"},test2);
+            $("#btn1").click({para1:"{% url 'jsd' 0 %}"},showpic);
+            $("#btn2").click({para1:"{% url 'jsd' 1 %}"},showpic);
+            $("#btn3").click({para1:"{% url 'jsd' 2 %}"},showpic);
             })
     </script>
 </head>
@@ -53,6 +41,9 @@
     </div>
     <div>
         <button type="submit" id='btn2'>check time</button>
+    </div>
+    <div>
+        <button type="submit" id='btn3'>PowerCurve</button>
     </div>
     <div class="container">
         <img src="data:image/png;base64,{{ inline_png }}" alt="test" id="pic" />
