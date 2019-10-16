@@ -45,4 +45,5 @@ urlpatterns = [
         wv.SelectedView.as_view(), name='sel_view'),
     url('^super_admin/', admin.site.urls),
     url('^admin/', custom_site.urls),
+    url(r'^database/', include('wind.urls')),
 ]

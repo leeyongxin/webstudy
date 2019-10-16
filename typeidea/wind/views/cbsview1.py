@@ -1,3 +1,10 @@
+'''
+@Author: Yongxin
+@Date: 2019-08-14 01:23:45
+@LastEditors: Yongxin
+@LastEditTime: 2019-08-14 04:27:41
+@Description: 
+'''
 #coding:utf-8
 #!/usr/bin/env python
 """"
@@ -30,7 +37,7 @@ import pandas as pd
 import sys
 
 from ..utility import yaw_align
-from ..models import Database, DbTable
+from ..models import Database, DbTable, Turbine
 from ..funlib import Mongo
 from ..forms import QueryTimeForm
 
@@ -110,12 +117,26 @@ class TableListView(DbListView, ListView):
         mdb = Database.objects.get(db_name=self.kwargs['slug'])
         # add talbe if notexist
         table_list = mon.connect_mongo()[self.kwargs['slug']].list_collection_names()
+
+        # use DIEF1 as default turbine type as beginning 
+        if not Turbine.objects.get(turbine="DIEF1"):
+            turbine_type = Turbine(turbine="DIEF1")
+            turbine_type.save()
+        else:
+            turbine_type = Turbine.objects.get(turbine="DIEF1")
+
         for colname in table_list :
             try:
                 DbTable.objects.get(col_name=colname)
             except DbTable.DoesNotExist:
                 headlist = list(mon.connect_mongo()[self.kwargs['slug']][colname].find_one({},{'_id':0}).keys())
-                newtable = DbTable(col_name=colname, db=mdb)
+                # use DIEF1 as default turbine type as beginning 
+                if not Turbine.objects.get(turbine="DIEF1"):
+                    turbine_type = Turbine(turbine="DIEF1")
+                    turbine_type.save()
+                else:
+                    turbine_type = Turbine.objects.get(turbine="DIEF1")
+                newtable = DbTable(col_name=colname, db=mdb, turbine_type=turbine_type)
                 newtable.set_col_head(headlist)
                 newtable.save()
         # remove talbe if not exist

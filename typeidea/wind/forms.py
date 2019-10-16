@@ -2,13 +2,13 @@
 @Author: Yongxin
 @Date: 2019-08-13 01:59:08
 @LastEditors: Yongxin
-@LastEditTime: 2019-08-13 08:33:57
+@LastEditTime: 2019-08-14 05:55:25
 @Description: 
 '''
 from django import forms
 from django.forms import ModelForm
 
-from .models import QueryTime, DbTable, Database
+from .models import QueryTime, DbTable, Database, Turbine
 
 
 class DateInput(forms.DateTimeInput):
@@ -28,13 +28,12 @@ class QueryTimeForm(ModelForm):
 
 
 class SelectTalbeForm(forms.Form):
-    databases = Database.objects.all()
-    choises = ((db, db) for db in databases)
+    pass
 
 
 
 class MapHeaderForm(forms.Form):
-    headlist = DbTable.objects.get(col_name="t026_scada_30_raw").get_col_head()
+
     turbine_choices = (
         ("DIEF1", "DIEF1"),
         ("DongFang","东汽"),
@@ -43,6 +42,10 @@ class MapHeaderForm(forms.Form):
 
     )
     turbine_type = forms.ChoiceField(choices=turbine_choices)
+
+    # headlist = DbTable.objects.get(turbine_type=turbine_type),"t008_scada_600_raw").get_col_head()
+    headlist = range(1,6)
+
     windspeed = forms.ChoiceField(choices=((hl, hl) for hl in headlist))
     power = forms.ChoiceField(choices=((hl, hl) for hl in headlist))
     temperature = forms.ChoiceField(choices=((hl, hl) for hl in headlist))
@@ -50,3 +53,4 @@ class MapHeaderForm(forms.Form):
     blade_act = forms.ChoiceField(choices=((hl, hl) for hl in headlist))
     torque_set = forms.ChoiceField(choices=((hl, hl) for hl in headlist))
     torque_act = forms.ChoiceField(choices=((hl, hl) for hl in headlist))
+    timestamp = forms.ChoiceField(choices=((hl, hl) for hl in headlist))
