@@ -1,0 +1,84 @@
+int,TimeStamp,0
+float,TurbineState,2
+float,TemperatureOutside,4
+float,WindSpeed30s,6
+float,WindSpeed10MinAvg,8
+float,WindDirection,10
+float,NacelleDrection,12
+float,TemperatureNacelle,14
+float,TemperatureController,16
+float,TemperatureConverterInlet,18
+float,TemperatureGearBoxOil,20
+float,TemperatureGearBox,22
+float,TemepratureGearBoxBearing,24
+float,TemperatureHighSpeedBearing,26
+float,GrearRevs,28
+float,TemperatureGearBoxBearing DE,30
+float,TemperatureGearBoxBearing ND,32
+float,TemperatureGeneratorWinding,34
+float,GeneratorSpeed,36
+float,HydraulicPressureYaw,38
+float,GrearPressure,40
+float,AnalogInputPressureGrearOil,42
+float,RotorSpeed,44
+float,TemperatureMainBearing,46
+float,PithAngleAvg,48
+float,PithAngleBlade1,50
+float,PithAngleBlade2,52
+float,PithAngleBlade3,54
+float,TemperaturePitchMotor1,56
+float,TemperaturePitchMotor2,58
+float,TemperaturePitchMotor3,60
+float,GridFreq,62
+float,GridVolt,64
+float,GridVoltA,66
+float,GridVoltB,68
+float,GridVoltC,70
+float,GridCurrent,72
+float,GridCurrentA,74
+float,GridCurrentB,76
+float,GridCurrentC,78
+float,ExitPowerSetPoint,80
+float,GridCosPhi,82
+float,GridCosPhiSetpoint,84
+int,TemperatureTransformer,86
+float,DI 100-115 State,88
+int,DI 118-133 State,90
+int,DI 136-151 State,92
+int,DO 501-506 State,94
+int,DO 521-536 State,96
+int,DO 550-565 State,98
+float,Active Status Code 1,100
+float,Active Status Code 2,102
+float,Active Status Code 3,104
+float,Active Status Code 4,106
+float,Active Status Code 5,108
+float,Active Status Code 6,110
+float,Active Status Code 7,112
+int,Active Status Code 8,114
+int,Active Status Code 9,116
+int,Active Status Code 10,118
+int,Active Status Code 11,120
+int,Active Status Code 12,122
+int,Active Status Code 13,124
+int,Active Status Code 14,126
+int,Active Status Code 15,128
+int,Active Status Code 16,130
+int,Active Status Code 17,132
+int,Active Status Code 18,134
+int,Active Status Code 19,136
+int,Active Status Code 20,138
+int,Active Status Code 21,140
+int,Active Status Code 22,142
+int,Active Status Code 23,144
+int,Active Status Code 24,146
+int,Active Status Code 25,148
+int,Active Status Code 26,150
+int,Active Status Code 27,152
+int,Active Status Code 28,154
+int,Active Status Code 29,156
+int,Active Status Code 30,158
+float,GridPower30s,160
+float,GridRactivePower30s,162
+float,TemperatureGBBearing DE Avg,164
+float,TemperatureGBBearing ND Avg,166

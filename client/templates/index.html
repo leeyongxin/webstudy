@@ -1,0 +1,376 @@
+<html>
+
+<head>
+  <link rel="stylesheet" href="{{ url_for('static', filename = 'bootstrap.min.css') }}">
+  <style>
+    table * {
+      font-size: 13px;
+    }
+
+    .alert-modal {
+      position: fixed;
+      top: 40px;
+      right: 20px;
+      opacity: 0;
+      transition: all .3s ease;
+    }
+
+    .form-group {
+      margin-bottom: 12px !important;
+    }
+
+    .alert-show {
+      opacity: 1;
+    }
+  </style>
+  <script type="text/javascript" src="{{ url_for('static', filename = 'jquery.min.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename = 'bootstrap.min.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename = 'vue.min.js') }}"></script>
+</head>
+
+<body>
+  <div id="app" class="container">
+    <h2>新天通用SCADA PLC协议调试工具</h2>
+    <div :class="['alert-modal', alertModal ? 'alert-show':'']">
+      <div class="alert alert-info" role="alert">
+        <p v-text="alertContent"></p>
+      </div>
+    </div>
+    <!-- Content here -->
+    <form class="form-inline">
+      <div class="form-group">
+        <label for="exampleInputName2">PLC IP：</label>
+        <input type="text" v-model="ip" class="form-control" id="exampleInputName2" placeholder="PLC IP">
+      </div>
+      <button type="button" @click="start(1)" class="btn btn-primary">读一次信号&数字量</button>
+      <button type="button" @click="start(2)" class="btn btn-info" v-bind:disabled="disabled" v-text="btnTxt"></button>
+      <button type="button" @click="start(3)" class="btn btn-default">停止</button>
+      <!-- <button type="button" @click="save()" class="btn btn-default">保存快照</button> -->
+      <div class="form-group">
+        <label for="exampleInputName2">读取参数及设置：</label>
+        <div class="btn-group">
+          <button type="button" @click="getTypeData('params')" class="btn btn-default">设置参数</button>
+          <button type="button" @click="getTypeData('paramsHide')" class="btn btn-default">参数屏蔽设置</button>
+          <button type="button" @click="getTypeData('manualReset')" class="btn btn-default">手动/自动复位标志</button>
+          <button type="button" @click="getTypeData('trigger')" class="btn btn-default">状态触发时间设置</button>
+          <button type="button" @click="getTypeData('triggerParams')" class="btn btn-default">状态触发参数设置</button>
+          <button type="button" @click="getTypeData('reset')" class="btn btn-default">复位时间设置</button>
+          <button type="button" @click="getTypeData('resetParams')" class="btn btn-default">复位参数设置</button>
+          <button type="button" @click="getTypeData('trouble')" class="btn btn-default">trouble参数</button>
+        </div>
+      </div>
+    </form>
+    <form class="form-inline">
+      <div class="form-group">
+        <label for="exampleInputName2">PLC 控制命令：</label>
+        <div class="btn-group">
+          <button type="button" @click="ctrl(0)" class="btn btn-success">启动</button>
+          <button type="button" @click="ctrl(1)" class="btn btn-warning">停止</button>
+          <button type="button" @click="ctrl(2)" class="btn btn-default">复位</button>
+          <button type="button" @click="ctrl(3)" class="btn btn-default">重启</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="exampleInputName2">PlcYaw 控制：</label>
+        <div class="btn-group">
+          <button type="button" @click="ctrl(5)" class="btn btn-default">PlcYawLeft</button>
+          <button type="button" @click="ctrl(6)" class="btn btn-default">PlcYawRight</button>
+          <button type="button" @click="ctrl(7)" class="btn btn-default">PlcYawCloseAuto</button>
+          <button type="button" @click="ctrl(8)" class="btn btn-default">PlcYawStop</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="exampleInputName2">功率限制控制：</label>
+        <div class="btn-group">
+          <button type="button" @click="ctrl(9)" class="btn btn-default">开启功率限制</button>
+          <button type="button" @click="ctrl(10)" class="btn btn-default">关闭功率限制</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="exampleInputName2">PLC bmq 控制：</label>
+        <div class="btn-group">
+          <button type="button" @click="ctrl(11)" class="btn btn-default">A编码器使能</button>
+          <button type="button" @click="ctrl(12)" class="btn btn-default">B编码器使能</button>
+          <button type="button" @click="ctrl(13)" class="btn btn-default">enableReactivePowerLimit</button>
+          <button type="button" @click="ctrl(14)" class="btn btn-default">disableReactivePowerLimit</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="exampleInputName2">PLC TimeEnableFlag 控制：</label>
+        <div class="btn-group">
+          <button type="button" @click="ctrl(15)" class="btn btn-default">PlcSetTimeEnableFlag</button>
+        </div>
+      </div>
+    </form>
+    <form class="form-inline">
+      <div class="input-group">
+        <span class="input-group-addon" id="sizing-addon2">有功功率控制</span>
+        <input type="number" v-model="activePower" class="form-control" placeholder="有功功率值"
+          aria-describedby="sizing-addon2">
+        <span class="input-group-btn">
+          <button class="btn btn-primary" type="button" @click="write('double', 16, 'activePower')">发送</button>
+        </span>
+      </div>
+      <div class="input-group">
+        <span class="input-group-addon" id="sizing-addon2">无功功率控制</span>
+        <input type="number" v-model="reActivePower" class="form-control" placeholder="输入参数"
+          aria-describedby="sizing-addon2">
+        <span class="input-group-btn">
+          <button class="btn btn-primary" type="button" @click="write('double', 17, 'reActivePower')">发送</button>
+        </span>
+      </div>
+      <div class="input-group">
+        <span class="input-group-addon" id="sizing-addon2">PLCNoloadOperationSpeed</span>
+        <input type="number" v-model="spd" class="form-control" placeholder="NoloadOperationSpeed"
+          aria-describedby="sizing-addon2">
+        <span class="input-group-btn">
+          <button class="btn btn-primary" type="button" @click="write('double', 18, 'spd')">发送</button>
+        </span>
+      </div>
+    </form>
+    <div class="row">
+      <div class="col-md-6 col-sm-6" v-if="activeTab == 'real'">
+        <h4>信号量</h4>
+        <table class="table table-bordered table-hover table-condensed">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">字段</th>
+              <th scope="col" width="33%">值</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item,index) in digital" v-bind:key="item.index">
+              <th scope="row" v-text="index">{{index}}</th>
+              <td v-text="item.name"></td>
+              <td v-text="item.value"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-6 col-sm-6"  v-if="activeTab == 'real'">
+        <h4>数字量</h4>
+        <table class="table table-bordered table-hover table-condensed">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">字段</th>
+              <th scope="col" width="33%">值</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item,index) in analog" v-bind:key="item.index">
+              <th scope="row" v-text="index"></th>
+              <td v-text="item.name"></td>
+              <td v-text="item.value"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-12 col-sm-12"  v-if="activeTab == 'trouble'">
+        <h4>trouble参数</h4>
+        <table class="table table-bordered table-hover table-condensed">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">字段</th>
+              <th scope="col" width="33%">值</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item,index) in trouble" v-bind:key="item.index">
+              <th scope="row" v-text="index">{{index}}</th>
+              <td v-text="item.name"></td>
+              <td v-text="item.value"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-12 col-sm-12"  v-if="activeTab == 'params'">
+        <h4>参数设定</h4>
+        <table class="table table-bordered table-hover table-condensed">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">字段</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item,index) in params" v-bind:key="item.index">
+              <th scope="row" v-text="index"></th>
+              <td>
+                <div class="input-group">
+                  <span class="input-group-addon" id="sizing-addon2" v-text="item.name"></span>
+                  <input type="number" v-model="item['value']" class="form-control" placeholder="输入参数"
+                    aria-describedby="sizing-addon2">
+                  <span class="input-group-btn">
+                    <button class="btn btn-primary" type="button" @click="params_write(item)">发送</button>
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-12 col-sm-12"  v-if="activeTab == 'trigger'">
+        <h4>状态触发时间设置</h4>
+        <table class="table table-bordered table-hover table-condensed">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">字段</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item,index) in trigger" v-bind:key="item.index">
+              <th scope="row" v-text="index"></th>
+              <td>
+                <div class="input-group">
+                  <span class="input-group-addon" id="sizing-addon2" v-text="item.name"></span>
+                  <input type="number" v-model="item['value']" class="form-control" placeholder="输入参数"
+                    aria-describedby="sizing-addon2">
+                  <span class="input-group-btn">
+                    <button class="btn btn-primary" type="button" @click="params_write(item)">发送</button>
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-12 col-sm-12"  v-if="activeTab == 'triggerParams'">
+        <h4>状态触发参数设置</h4>
+        <table class="table table-bordered table-hover table-condensed">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">字段</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item,index) in triggerParams" v-bind:key="item.index">
+              <th scope="row" v-text="index"></th>
+              <td>
+                <div class="input-group">
+                  <span class="input-group-addon" id="sizing-addon2" v-text="item.name"></span>
+                  <input type="number" v-model="item['value']" class="form-control" placeholder="输入参数"
+                    aria-describedby="sizing-addon2">
+                  <span class="input-group-btn">
+                    <button class="btn btn-primary" type="button" @click="params_write(item)">发送</button>
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-12 col-sm-12"  v-if="activeTab == 'reset'">
+        <h4>复位时间设置</h4>
+        <table class="table table-bordered table-hover table-condensed">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">字段</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item,index) in reset" v-bind:key="item.index">
+              <th scope="row" v-text="index"></th>
+              <td>
+                <div class="input-group">
+                  <span class="input-group-addon" id="sizing-addon2" v-text="item.name"></span>
+                  <input type="number" v-model="item['value']" class="form-control" placeholder="输入参数"
+                    aria-describedby="sizing-addon2">
+                  <span class="input-group-btn">
+                    <button class="btn btn-primary" type="button" @click="params_write(item)">发送</button>
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-12 col-sm-12"  v-if="activeTab == 'resetParams'">
+        <h4>复位参数设置</h4>
+        <table class="table table-bordered table-hover table-condensed">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">字段</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item,index) in resetParams" v-bind:key="item.index">
+              <th scope="row" v-text="index"></th>
+              <td>
+                <div class="input-group">
+                  <span class="input-group-addon" id="sizing-addon2" v-text="item.name"></span>
+                  <input type="number" v-model="item['value']" class="form-control" placeholder="输入参数"
+                    aria-describedby="sizing-addon2">
+                  <span class="input-group-btn">
+                    <button class="btn btn-primary" type="button" @click="params_write(item)">发送</button>
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-12 col-sm-12"  v-if="activeTab == 'paramsHide'">
+        <h4>参数屏蔽设置</h4>
+        <table class="table table-bordered table-hover table-condensed">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">字段</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item,index) in paramsHide" v-bind:key="item.index">
+              <th scope="row" v-text="index"></th>
+              <td>
+                <div class="input-group">
+                  <span class="input-group-addon" id="sizing-addon2" v-text="item.name"></span>
+                  <input type="number" v-model="item['value']" class="form-control" placeholder="输入参数"
+                    aria-describedby="sizing-addon2">
+                  <span class="input-group-btn">
+                    <button class="btn btn-primary" type="button" @click="params_write(item)">发送</button>
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-12 col-sm-12"  v-if="activeTab == 'manualReset'">
+        <h4>手动/自动复位标志</h4>
+        <table class="table table-bordered table-hover table-condensed">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">字段</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item,index) in manualReset" v-bind:key="item.index">
+              <th scope="row" v-text="index"></th>
+              <td>
+                <div class="input-group">
+                  <span class="input-group-addon" id="sizing-addon2" v-text="item.name"></span>
+                  <input type="number" v-model="item['value']" class="form-control" placeholder="输入参数"
+                    aria-describedby="sizing-addon2">
+                  <span class="input-group-btn">
+                    <button class="btn btn-primary" type="button" @click="params_write(item)">发送</button>
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script type="text/javascript" src="{{ url_for('static', filename = 'index.js') }}"></script>
+</body>
+
+</html>
